@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/client';
 
 export default function Settings() {
   const { username, logout } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +50,23 @@ export default function Settings() {
           <p className="text-sm text-gray-400">Administrador</p>
         </div>
       </div>
+
+      {/* Menu management */}
+      <button
+        onClick={() => navigate('/configuracion/menu')}
+        className="card w-full flex items-center justify-between hover:border-brand-yellow transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand-yellow flex items-center justify-center text-xl">🍽️</div>
+          <div className="text-left">
+            <p className="font-bold text-gray-800">Gestión de Menú</p>
+            <p className="text-sm text-gray-400">Agregar, editar o desactivar productos</p>
+          </div>
+        </div>
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
 
       {/* Change password */}
       <div className="card">
