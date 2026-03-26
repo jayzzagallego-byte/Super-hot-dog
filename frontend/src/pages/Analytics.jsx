@@ -46,14 +46,13 @@ export default function Analytics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Chart state
+  // Active tab
   const [activeChart, setActiveChart] = useState('productos'); // productos | tiempo | categorias
-  const [chartType, setChartType] = useState('Barras');
 
   // Category filters per tab
-  const [topCat, setTopCat] = useState(null);   // null = all
+  const [topCat, setTopCat] = useState(null);
   const [timeCat, setTimeCat] = useState(null);
-  const [compareCats, setCompareCats] = useState(null); // null = all (multi)
+  const [compareCats, setCompareCats] = useState(null);
 
   // No-movement section
   const [noMovOpen, setNoMovOpen] = useState(false);
@@ -79,7 +78,6 @@ export default function Analytics() {
     try {
       const res = await api.get('/analytics', { params: { from: queryFrom, to: queryTo } });
       setData(res.data);
-      // reset filters when data changes
       setTopCat(null); setTimeCat(null); setCompareCats(null); setNoMovCat(null);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -88,28 +86,23 @@ export default function Analytics() {
   useEffect(() => { load(); }, [load]);
 
   // ── derived data ─────────────────────────────────────────────
-  // All categories that appear in the current period's sales
   const allCats = [...new Set([
     ...(data?.topProducts ?? []).map(p => p.category),
     ...(data?.salesOverTimeByCategory ?? []).map(d => d.category),
   ].filter(Boolean))].sort();
 
-  // Top products filtered
   const filteredTop = topCat
     ? (data?.topProducts ?? []).filter(p => p.category === topCat)
     : (data?.topProducts ?? []);
 
-  // Time data: total or per-category
   const filteredTime = timeCat
     ? (data?.salesOverTimeByCategory ?? []).filter(d => d.category === timeCat)
     : (data?.salesOverTime ?? []);
 
-  // Compare categories (multi-select filter)
   const filteredCompare = compareCats
     ? (data?.byCategory ?? []).filter(c => compareCats.includes(c.category))
     : (data?.byCategory ?? []);
 
-  // No-movement filter
   const noMovCats = [...new Set((data?.noMovement ?? []).map(p => p.category).filter(Boolean))].sort();
   const filteredNoMov = noMovCat
     ? (data?.noMovement ?? []).filter(p => p.category === noMovCat)
@@ -130,7 +123,7 @@ export default function Analytics() {
     URL.revokeObjectURL(url);
   };
 
-  // ── category filter pill component ───────────────────────────
+  // ── category filter pills ─────────────────────────────────────
   const CatPills = ({ value, onChange }) => (
     <div className="flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
       <button
@@ -155,7 +148,6 @@ export default function Analytics() {
     </div>
   );
 
-  // ── compare category multi-select ────────────────────────────
   const toggleCompareCat = (cat) => {
     if (!compareCats) {
       setCompareCats((data?.byCategory ?? []).map(c => c.category).filter(c => c !== cat));
@@ -167,6 +159,13 @@ export default function Analytics() {
       setCompareCats(next.length === (data?.byCategory ?? []).length ? null : next);
     }
   };
+
+  // Tab definitions with chart type hint shown as subtitle
+  const TABS = [
+    { key: 'productos',  label: 'Top productos',       hint: 'Barras horizontales' },
+    { key: 'tiempo',     label: 'En el tiempo',         hint: 'Línea de tendencia'  },
+    { key: 'categorias', label: 'Comparar categorías',  hint: 'Torta de composición' },
+  ];
 
   return (
     <div className="px-4 pt-5 pb-24 space-y-4">
@@ -249,11 +248,7 @@ export default function Analytics() {
 
           {/* Chart tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {[
-              ['productos', 'Top productos'],
-              ['tiempo', 'En el tiempo'],
-              ['categorias', 'Comparar categorías'],
-            ].map(([key, label]) => (
+            {TABS.map(({ key, label }) => (
               <button key={key} onClick={() => setActiveChart(key)}
                 className={`flex-shrink-0 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
                   activeChart === key ? 'bg-brand-red text-white' : 'bg-white text-gray-600 border border-gray-200'
@@ -288,46 +283,28 @@ export default function Analytics() {
             </div>
           )}
 
-          {/* Chart type selector */}
-          <div className="flex gap-2">
-            {['Líneas', 'Barras', 'Torta'].map(t => (
-              <button key={t} onClick={() => setChartType(t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  chartType === t ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'
-                }`}>
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Chart */}
+          {/* Chart — type is fixed per tab */}
           <div className="card p-4">
             {activeChart === 'productos' && (
-              <ProductChart
+              <TopProductosChart
                 data={filteredTop}
-                chartType={chartType}
                 title={topCat ? `Top — ${topCat}` : 'Top productos'}
               />
             )}
             {activeChart === 'tiempo' && (
-              <TimeChart
+              <EnElTiempoChart
                 data={filteredTime}
-                chartType={chartType}
                 title={timeCat ? `${timeCat} en el tiempo` : 'Ventas diarias (total)'}
               />
             )}
             {activeChart === 'categorias' && (
-              <CategoryChart
-                data={filteredCompare}
-                chartType={chartType}
-              />
+              <CompararCategoriasChart data={filteredCompare} />
             )}
           </div>
 
           {/* No-movement section — collapsible */}
           {data.noMovement.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
-              {/* Header / toggle */}
               <button
                 className="w-full flex items-center justify-between px-4 py-3"
                 onClick={() => setNoMovOpen(o => !o)}
@@ -348,7 +325,6 @@ export default function Analytics() {
 
               {noMovOpen && (
                 <div className="px-4 pb-4 space-y-3">
-                  {/* Category filter */}
                   <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() => setNoMovCat(null)}
@@ -370,8 +346,6 @@ export default function Analytics() {
                       </button>
                     ))}
                   </div>
-
-                  {/* Product list */}
                   <div className="space-y-1">
                     {filteredNoMov.map((p, i) => (
                       <div key={i} className="flex justify-between text-sm">
@@ -390,108 +364,18 @@ export default function Analytics() {
   );
 }
 
-// ── Chart components ─────────────────────────────────────────────
+// ── Chart components — each tab has one fixed chart type ──────────
 
-function TimeChart({ data, chartType, title }) {
-  if (!data || data.length === 0) return <EmptyChart />;
-  const fmt = data.map(d => ({ ...d, day: d.day.slice(5) }));
-
-  if (chartType === 'Torta') {
-    return (
-      <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie data={fmt} dataKey="total" nameKey="day" cx="50%" cy="45%" outerRadius={85}
-              labelLine={false} label={renderCustomLabel}>
-              {fmt.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={v => [COP(v), 'Total']} />
-            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
-  if (chartType === 'Barras') {
-    return (
-      <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={fmt} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-            <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={v => [COP(v), 'Total']} />
-            <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-              {fmt.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
-  // Líneas (default)
-  return (
-    <div>
-      <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={fmt} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
-          <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-          <Tooltip formatter={v => [COP(v), 'Total']} labelFormatter={l => `Día: ${l}`} />
-          <Line type="monotone" dataKey="total" stroke="#F59E0B" strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function ProductChart({ data, chartType, title }) {
+/** Top productos → always horizontal bar chart */
+function TopProductosChart({ data, title }) {
   if (!data || data.length === 0) return <EmptyChart />;
   const top = data.slice(0, 10);
-
-  if (chartType === 'Torta') {
-    return (
-      <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie data={top} dataKey="total_qty" nameKey="product_name" cx="50%" cy="45%" outerRadius={85}
-              labelLine={false} label={renderCustomLabel}>
-              {top.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={(v, n) => [v + ' uds', n]} />
-            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={v => v.length > 14 ? v.slice(0, 13) + '…' : v} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
-  if (chartType === 'Líneas') {
-    return (
-      <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={top} margin={{ top: 5, right: 10, bottom: 50, left: 0 }}>
-            <XAxis dataKey="product_name" tick={{ fontSize: 8 }} angle={-35} textAnchor="end" interval={0} />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip formatter={v => [v + ' uds', 'Vendidos']} />
-            <Line type="monotone" dataKey="total_qty" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 4 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
   return (
     <div>
       <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-      <ResponsiveContainer width="100%" height={Math.max(200, top.length * 32)}>
+      <ResponsiveContainer width="100%" height={Math.max(200, top.length * 34)}>
         <BarChart data={top} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-          <XAxis type="number" tick={{ fontSize: 10 }} />
+          <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `${v}`} />
           <YAxis type="category" dataKey="product_name" tick={{ fontSize: 9 }} width={110} />
           <Tooltip formatter={v => [v + ' uds', 'Vendidos']} />
           <Bar dataKey="total_qty" radius={[0, 4, 4, 0]}>
@@ -503,39 +387,55 @@ function ProductChart({ data, chartType, title }) {
   );
 }
 
-function CategoryChart({ data, chartType }) {
+/** En el tiempo → always line chart */
+function EnElTiempoChart({ data, title }) {
   if (!data || data.length === 0) return <EmptyChart />;
-
-  if (chartType === 'Torta') {
-    return (
-      <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">Ingresos por categoría</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie data={data} dataKey="revenue" nameKey="category" cx="50%" cy="45%" outerRadius={85}
-              labelLine={false} label={renderCustomLabel}>
-              {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={v => [COP(v), 'Ingresos']} />
-            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  }
-
+  const fmt = data.map(d => ({ ...d, day: d.day.slice(5) }));
   return (
     <div>
-      <p className="font-bold text-sm mb-3 text-gray-700">Ingresos por categoría</p>
+      <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 5, right: 5, bottom: 20, left: 0 }}>
-          <XAxis dataKey="category" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" />
+        <LineChart data={fmt} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+          <XAxis dataKey="day" tick={{ fontSize: 10 }} />
           <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-          <Tooltip formatter={v => [COP(v), 'Ingresos']} />
-          <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
+          <Tooltip formatter={v => [COP(v), 'Total']} labelFormatter={l => `Día: ${l}`} />
+          <Line
+            type="monotone"
+            dataKey="total"
+            stroke="#F59E0B"
+            strokeWidth={2.5}
+            dot={{ fill: '#F59E0B', r: 3, strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: '#1a1a1a' }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/** Comparar categorías → always pie chart */
+function CompararCategoriasChart({ data }) {
+  if (!data || data.length === 0) return <EmptyChart />;
+  return (
+    <div>
+      <p className="font-bold text-sm mb-3 text-gray-700">Composición de ingresos</p>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="revenue"
+            nameKey="category"
+            cx="50%"
+            cy="45%"
+            outerRadius={90}
+            labelLine={false}
+            label={renderCustomLabel}
+          >
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Bar>
-        </BarChart>
+          </Pie>
+          <Tooltip formatter={v => [COP(v), 'Ingresos']} />
+          <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+        </PieChart>
       </ResponsiveContainer>
     </div>
   );
