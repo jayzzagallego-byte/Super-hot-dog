@@ -258,7 +258,7 @@ function MovementModal({ ingredient, type, onConfirm, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
       <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">
           {type === 'entrada' ? '↑ Entrada' : '↓ Salida'} — {ingredient.name}
@@ -326,7 +326,7 @@ function AddIngredientModal({ onConfirm, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
       <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">Nuevo ingrediente</h3>
         <div>
@@ -388,7 +388,7 @@ function EditIngredientModal({ ingredient, onConfirm, onDelete, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50">
       <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">Editar ingrediente</h3>
         <div>

@@ -69,7 +69,7 @@ export default function NewSale() {
 
   const addToCart = () => {
     if (!modal) return;
-    const { product, isCombo, base, additions, quantity, categoryName } = modal;
+    const { product, isCombo, base, additions, removals, quantity, categoryName } = modal;
     const unitPrice = isCombo && product.combo_price ? product.combo_price : product.price;
     const additionsTotal = additions.reduce((sum, a) => sum + a.price, 0);
     const totalPrice = (unitPrice + additionsTotal);
@@ -83,6 +83,7 @@ export default function NewSale() {
       is_combo: isCombo,
       base,
       additions: additions.map(a => a.name),
+      removals: removals || [],
       categoryName,
     }]);
     setModal(null);
@@ -108,6 +109,7 @@ export default function NewSale() {
           is_combo: item.is_combo,
           base: item.base,
           additions: item.additions,
+          removals: item.removals,
         })),
         payment_method: paymentMethod,
         channel,
@@ -230,6 +232,9 @@ export default function NewSale() {
                   {item.additions?.length > 0 && (
                     <p className="text-xs text-gray-500">+ {item.additions.join(', ')}</p>
                   )}
+                  {item.removals?.length > 0 && (
+                    <p className="text-xs text-red-500">Sin: {item.removals.join(', ')}</p>
+                  )}
                   <p className="text-sm font-bold text-gray-700 mt-1">{fmt(item.unit_price)} × {item.quantity}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-2">
@@ -346,7 +351,13 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
   const [isCombo, setIsCombo] = useState(false);
   const [base, setBase] = useState('Pan');
   const [additions, setAdditions] = useState([]);
+  const [removals, setRemovals] = useState([]);
   const [quantity, setQuantity] = useState(1);
+
+  // Parse description into removable ingredient list
+  const ingredientList = product.description
+    ? product.description.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
 
   const toggleAddition = (addition) => {
     setAdditions(prev =>
@@ -356,12 +367,18 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
     );
   };
 
+  const toggleRemoval = (ingredient) => {
+    setRemovals(prev =>
+      prev.includes(ingredient) ? prev.filter(i => i !== ingredient) : [...prev, ingredient]
+    );
+  };
+
   const unitPrice = isCombo && product.combo_price ? product.combo_price : product.price;
   const additionsTotal = additions.reduce((sum, a) => sum + a.price, 0);
   const lineTotal = (unitPrice + additionsTotal) * quantity;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setModal(null)}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50" onClick={() => setModal(null)}>
       <div
         className="bg-white rounded-t-3xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 space-y-4"
         onClick={e => e.stopPropagation()}
@@ -446,6 +463,34 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
           </div>
         )}
 
+        {/* Removals — quitar ingredientes del producto */}
+        {ingredientList.length > 0 && (
+          <div>
+            <p className="label">Quitar ingredientes</p>
+            <div className="flex flex-wrap gap-2">
+              {ingredientList.map(ing => {
+                const removed = removals.includes(ing);
+                return (
+                  <button
+                    key={ing}
+                    onClick={() => toggleRemoval(ing)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                      removed
+                        ? 'border-red-400 bg-red-50 text-red-700 line-through'
+                        : 'border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {removed ? '✕ ' : ''}{ing}
+                  </button>
+                );
+              })}
+            </div>
+            {removals.length > 0 && (
+              <p className="text-xs text-red-500 mt-1.5">Sin: {removals.join(', ')}</p>
+            )}
+          </div>
+        )}
+
         {/* Quantity */}
         <div className="flex items-center justify-between">
           <p className="label mb-0">Cantidad</p>
@@ -469,7 +514,7 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
         <button
           onClick={() => {
             // pass state back
-            Object.assign(modal, { isCombo, base, additions, quantity });
+            Object.assign(modal, { isCombo, base, additions, removals, quantity });
             onAdd();
           }}
           className="btn-primary w-full flex items-center justify-between"

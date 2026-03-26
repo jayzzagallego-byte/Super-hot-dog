@@ -34,8 +34,8 @@ router.post('/', authMiddleware, (req, res) => {
 
     // Insert items
     const insertItem = db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, is_combo, base, additions)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, is_combo, base, additions, removals)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (const item of items) {
@@ -47,7 +47,8 @@ router.post('/', authMiddleware, (req, res) => {
         item.unit_price,
         item.is_combo ? 1 : 0,
         item.base || null,
-        item.additions ? JSON.stringify(item.additions) : null
+        item.additions ? JSON.stringify(item.additions) : null,
+        item.removals && item.removals.length > 0 ? JSON.stringify(item.removals) : null
       );
 
       // Deduct ingredients if recipe exists
@@ -109,7 +110,8 @@ router.get('/', authMiddleware, (req, res) => {
     ...sale,
     items: db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(sale.id).map(item => ({
       ...item,
-      additions: item.additions ? JSON.parse(item.additions) : []
+      additions: item.additions ? JSON.parse(item.additions) : [],
+      removals: item.removals ? JSON.parse(item.removals) : [],
     }))
   }));
 
@@ -123,7 +125,8 @@ router.get('/:id', authMiddleware, (req, res) => {
 
   const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(sale.id).map(item => ({
     ...item,
-    additions: item.additions ? JSON.parse(item.additions) : []
+    additions: item.additions ? JSON.parse(item.additions) : [],
+    removals: item.removals ? JSON.parse(item.removals) : [],
   }));
 
   res.json({ ...sale, items });

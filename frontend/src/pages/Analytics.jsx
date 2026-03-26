@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import api from '../api/client';
 
@@ -14,30 +14,54 @@ const PERIODS = [
   { label: '1 año', days: 365 },
 ];
 
-const CHART_TYPES = ['Líneas', 'Barras', 'Torta'];
-
 const COLORS = ['#F59E0B', '#EF4444', '#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
 
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function daysAgoStr(days) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+}
+
 export default function Analytics() {
-  const [period, setPeriod] = useState(30);
+  const [activePeriod, setActivePeriod] = useState(30);
+  const [customMode, setCustomMode] = useState(false);
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [queryFrom, setQueryFrom] = useState(() => daysAgoStr(30));
+  const [queryTo, setQueryTo] = useState(() => todayStr());
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [chartType, setChartType] = useState('Barras');
-  const [activeChart, setActiveChart] = useState('productos'); // 'tiempo' | 'productos' | 'categorias'
+  const [activeChart, setActiveChart] = useState('productos');
+  const [selectedCats, setSelectedCats] = useState(null); // null = all
+
+  const selectPeriod = (days) => {
+    setActivePeriod(days);
+    setCustomMode(false);
+    setQueryFrom(daysAgoStr(days));
+    setQueryTo(todayStr());
+    setSelectedCats(null);
+  };
+
+  const applyCustom = () => {
+    if (!customFrom || !customTo) return;
+    setActivePeriod(null);
+    setQueryFrom(customFrom);
+    setQueryTo(customTo);
+    setSelectedCats(null);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const to = new Date().toISOString().split('T')[0];
-      const from = new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const res = await api.get('/analytics', { params: { from, to } });
+      const res = await api.get('/analytics', { params: { from: queryFrom, to: queryTo } });
       setData(res.data);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [queryFrom, queryTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -52,13 +76,32 @@ export default function Analytics() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `superhotdog_ventas_${period}dias.csv`;
+    a.download = `superhotdog_${queryFrom}_${queryTo}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  // Categories from data for filter
+  const allCategories = data?.byCategory?.map(c => c.category) ?? [];
+  const filteredCategories = selectedCats
+    ? data?.byCategory?.filter(c => selectedCats.includes(c.category))
+    : data?.byCategory;
+
+  const toggleCat = (cat) => {
+    if (!selectedCats) {
+      // Start filtering: deselect this one
+      setSelectedCats(allCategories.filter(c => c !== cat));
+    } else if (selectedCats.includes(cat)) {
+      const next = selectedCats.filter(c => c !== cat);
+      setSelectedCats(next.length === 0 ? allCategories : next);
+    } else {
+      const next = [...selectedCats, cat];
+      setSelectedCats(next.length === allCategories.length ? null : next);
+    }
+  };
+
   return (
-    <div className="px-4 pt-5 pb-6 space-y-4">
+    <div className="px-4 pt-5 pb-24 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-black text-xl text-brand-dark">Analíticas</h1>
@@ -71,19 +114,60 @@ export default function Analytics() {
       </div>
 
       {/* Period selector */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
         {PERIODS.map(p => (
           <button
             key={p.days}
-            onClick={() => setPeriod(p.days)}
+            onClick={() => selectPeriod(p.days)}
             className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-              period === p.days ? 'bg-brand-dark text-brand-yellow' : 'bg-white text-gray-600 border border-gray-200'
+              activePeriod === p.days && !customMode ? 'bg-brand-dark text-brand-yellow' : 'bg-white text-gray-600 border border-gray-200'
             }`}
           >
             {p.label}
           </button>
         ))}
+        <button
+          onClick={() => { setCustomMode(m => !m); }}
+          className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            customMode ? 'bg-brand-dark text-brand-yellow' : 'bg-white text-gray-600 border border-gray-200'
+          }`}
+        >
+          Personalizado
+        </button>
       </div>
+
+      {/* Custom date inputs */}
+      {customMode && (
+        <div className="card space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Desde</label>
+              <input
+                type="date"
+                className="input text-sm"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Hasta</label>
+              <input
+                type="date"
+                className="input text-sm"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+              />
+            </div>
+          </div>
+          <button
+            onClick={applyCustom}
+            disabled={!customFrom || !customTo}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            Aplicar
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -129,10 +213,10 @@ export default function Analytics() {
             ))}
           </div>
 
-          {/* Chart type selector */}
+          {/* Chart type selector (not for time chart) */}
           {activeChart !== 'tiempo' && (
             <div className="flex gap-2">
-              {CHART_TYPES.map(t => (
+              {['Líneas', 'Barras', 'Torta'].map(t => (
                 <button
                   key={t}
                   onClick={() => setChartType(t)}
@@ -146,17 +230,31 @@ export default function Analytics() {
             </div>
           )}
 
+          {/* Category filter (only when 'Por categoría' is active) */}
+          {activeChart === 'categorias' && allCategories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {allCategories.map(cat => {
+                const active = !selectedCats || selectedCats.includes(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => toggleCat(cat)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                      active ? 'border-brand-dark bg-brand-dark text-brand-yellow' : 'border-gray-200 text-gray-400'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Charts */}
           <div className="card p-4">
-            {activeChart === 'tiempo' && (
-              <TimeChart data={data.salesOverTime} />
-            )}
-            {activeChart === 'productos' && (
-              <ProductChart data={data.topProducts} chartType={chartType} />
-            )}
-            {activeChart === 'categorias' && (
-              <CategoryChart data={data.byCategory} chartType={chartType} />
-            )}
+            {activeChart === 'tiempo' && <TimeChart data={data.salesOverTime} />}
+            {activeChart === 'productos' && <ProductChart data={data.topProducts} chartType={chartType} />}
+            {activeChart === 'categorias' && <CategoryChart data={filteredCategories} chartType={chartType} />}
           </div>
 
           {/* No movement products */}
@@ -184,11 +282,7 @@ export default function Analytics() {
 
 function TimeChart({ data }) {
   if (!data || data.length === 0) return <EmptyChart />;
-  const formatted = data.map(d => ({
-    ...d,
-    day: d.day.slice(5), // MM-DD
-    total: d.total,
-  }));
+  const formatted = data.map(d => ({ ...d, day: d.day.slice(5) }));
   return (
     <div>
       <p className="font-bold text-sm mb-3 text-gray-700">Ventas diarias</p>

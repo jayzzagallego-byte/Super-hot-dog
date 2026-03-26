@@ -7,7 +7,6 @@ const PAYMENT_LABELS = {
   transferencia: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800' },
   nequi: { label: 'Nequi', color: 'bg-pink-100 text-pink-800' },
   daviplata: { label: 'Daviplata', color: 'bg-orange-100 text-orange-800' },
-  llave: { label: 'Llave', color: 'bg-yellow-100 text-yellow-800' },
 };
 
 const CHANNEL_LABELS = {
@@ -179,6 +178,9 @@ export default function SalesHistory() {
                           {item.additions?.length > 0 && (
                             <p className="text-xs text-gray-400">+ {item.additions.join(', ')}</p>
                           )}
+                          {item.removals?.length > 0 && (
+                            <p className="text-xs text-red-400">Sin: {item.removals.join(', ')}</p>
+                          )}
                         </div>
                         <span className="font-semibold text-gray-700 ml-2">{fmt(item.unit_price * item.quantity)}</span>
                       </div>
@@ -205,7 +207,7 @@ export default function SalesHistory() {
 
       {/* Delete confirmation modal */}
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-6">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
             <h3 className="font-black text-lg text-gray-800">¿Eliminar venta?</h3>
             <p className="text-gray-500 text-sm">Esta acción no se puede deshacer.</p>
