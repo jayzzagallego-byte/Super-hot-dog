@@ -2,18 +2,17 @@ import { useState, useEffect } from 'react';
 import api from '../api/client';
 
 const PAYMENT_LABELS = {
-  efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800', dot: 'bg-green-500' },
-  datafono: { label: 'Datáfono', color: 'bg-blue-100 text-blue-800', dot: 'bg-blue-500' },
+  efectivo:      { label: 'Efectivo',      color: 'bg-green-100 text-green-800',   dot: 'bg-green-500' },
+  datafono:      { label: 'Datáfono',      color: 'bg-blue-100 text-blue-800',     dot: 'bg-blue-500' },
   transferencia: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800', dot: 'bg-purple-500' },
-  nequi: { label: 'Nequi', color: 'bg-pink-100 text-pink-800', dot: 'bg-pink-500' },
-  daviplata: { label: 'Daviplata', color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
-  llave: { label: 'Llave', color: 'bg-yellow-100 text-yellow-800', dot: 'bg-yellow-500' },
+  nequi:         { label: 'Nequi',         color: 'bg-pink-100 text-pink-800',     dot: 'bg-pink-500' },
+  daviplata:     { label: 'Daviplata',     color: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' },
 };
 
 const CHANNEL_LABELS = {
   restaurante: { label: 'Restaurante', icon: '🍽️', color: 'bg-indigo-100 text-indigo-800' },
-  domicilio: { label: 'Domicilio', icon: '🛵', color: 'bg-teal-100 text-teal-800' },
-  rappi: { label: 'Rappi', icon: '🟠', color: 'bg-orange-100 text-orange-800' },
+  domicilio:   { label: 'Domicilio',   icon: '🛵', color: 'bg-teal-100 text-teal-800' },
+  rappi:       { label: 'Rappi',       icon: '🟠', color: 'bg-orange-100 text-orange-800' },
 };
 
 function fmt(value) {
@@ -24,6 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('today');
+  const [shiftOpen, setShiftOpen] = useState(false);
 
   useEffect(() => {
     api.get('/sales/stats/summary')
@@ -92,7 +92,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          {/* Visual bar */}
           {data.total > 0 && (
             <div className="flex rounded-full overflow-hidden h-2 mt-3">
               {payments.map(p => (
@@ -112,16 +111,13 @@ export default function Dashboard() {
         <div className="card">
           <h3 className="font-bold text-gray-700 mb-3">Por canal de venta</h3>
           <div className="grid grid-cols-3 gap-3">
-            {Object.entries(CHANNEL_LABELS).map(([key, meta]) => {
-              const value = data[key] || 0;
-              return (
-                <div key={key} className="bg-gray-50 rounded-xl p-3 text-center">
-                  <div className="text-2xl mb-1">{meta.icon}</div>
-                  <div className="text-xs text-gray-500 font-medium">{meta.label}</div>
-                  <div className="font-bold text-gray-800 text-sm mt-0.5">{fmt(value)}</div>
-                </div>
-              );
-            })}
+            {Object.entries(CHANNEL_LABELS).map(([key, meta]) => (
+              <div key={key} className="bg-gray-50 rounded-xl p-3 text-center">
+                <div className="text-2xl mb-1">{meta.icon}</div>
+                <div className="text-xs text-gray-500 font-medium">{meta.label}</div>
+                <div className="font-bold text-gray-800 text-sm mt-0.5">{fmt(data[key] || 0)}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -164,6 +160,150 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Cerrar turno button */}
+      <button
+        onClick={() => setShiftOpen(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold text-sm hover:border-brand-dark hover:text-brand-dark transition-colors"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Resumen del turno
+      </button>
+
+      {/* Shift summary modal */}
+      {shiftOpen && (
+        <ShiftSummaryModal
+          today={stats?.today || {}}
+          onClose={() => setShiftOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ShiftSummaryModal({ today, onClose }) {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const payments = Object.entries(PAYMENT_LABELS)
+    .map(([key, meta]) => ({ ...meta, value: today[key] || 0 }))
+    .filter(p => p.value > 0);
+
+  const channels = Object.entries(CHANNEL_LABELS)
+    .map(([key, meta]) => ({ ...meta, value: today[key] || 0 }))
+    .filter(c => c.value > 0);
+
+  const cashTotal = today.efectivo || 0;
+  const digitalTotal = (today.datafono || 0) + (today.transferencia || 0) + (today.nequi || 0) + (today.daviplata || 0);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-brand-dark text-white px-6 pt-6 pb-5 rounded-t-3xl">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-gray-400 text-xs uppercase tracking-wide font-semibold">Resumen del turno</p>
+              <p className="text-brand-yellow font-bold text-sm mt-0.5 capitalize">{dateStr}</p>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-white">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-4">
+            <p className="text-gray-400 text-sm">Total recaudado</p>
+            <p className="text-4xl font-black text-brand-yellow mt-0.5">{fmt(today.total || 0)}</p>
+            <p className="text-gray-400 text-sm mt-1">{today.count || 0} ventas · ticket promedio {fmt(today.count > 0 ? Math.round(today.total / today.count) : 0)}</p>
+          </div>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Cash vs Digital summary */}
+          {(cashTotal > 0 || digitalTotal > 0) && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-50 rounded-2xl p-4 text-center">
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Efectivo</p>
+                <p className="text-2xl font-black text-green-800 mt-1">{fmt(cashTotal)}</p>
+                <p className="text-xs text-green-600 mt-0.5">Contar en caja</p>
+              </div>
+              <div className="bg-blue-50 rounded-2xl p-4 text-center">
+                <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Digital</p>
+                <p className="text-2xl font-black text-blue-800 mt-1">{fmt(digitalTotal)}</p>
+                <p className="text-xs text-blue-600 mt-0.5">Transferencias / tarjeta</p>
+              </div>
+            </div>
+          )}
+
+          {/* Payment breakdown */}
+          {payments.length > 0 && (
+            <div>
+              <h4 className="font-bold text-gray-700 text-sm mb-2">Detalle por pago</h4>
+              <div className="space-y-2">
+                {payments.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${p.dot}`} />
+                      <span className="text-sm text-gray-600">{p.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">{fmt(p.value)}</span>
+                      {today.total > 0 && (
+                        <span className="text-xs text-gray-400 w-10 text-right">
+                          {Math.round((p.value / today.total) * 100)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {today.total > 0 && (
+                <div className="flex rounded-full overflow-hidden h-2 mt-3 gap-0.5">
+                  {payments.map((p, i) => (
+                    <div key={i} className={`${p.dot} rounded-full`} style={{ width: `${(p.value / today.total) * 100}%` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Channel breakdown */}
+          {channels.length > 0 && (
+            <div>
+              <h4 className="font-bold text-gray-700 text-sm mb-2">Por canal</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(CHANNEL_LABELS).map(([key, meta]) => (
+                  <div key={key} className="bg-gray-50 rounded-xl p-3 text-center">
+                    <div className="text-xl">{meta.icon}</div>
+                    <div className="text-xs text-gray-500 font-medium mt-0.5">{meta.label}</div>
+                    <div className="font-bold text-gray-800 text-sm">{fmt(today[key] || 0)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {today.count === 0 && (
+            <div className="text-center py-6 text-gray-400">
+              <p className="text-3xl mb-2">📭</p>
+              <p className="font-medium">Sin ventas registradas hoy</p>
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="btn-primary w-full"
+          >
+            Cerrar resumen
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

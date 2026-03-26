@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#1a1a1a"/>
+  <!-- Top bun -->
+  <ellipse cx="256" cy="195" rx="165" ry="62" fill="#C8792B"/>
+  <ellipse cx="256" cy="172" rx="128" ry="32" fill="#E89840" opacity="0.6"/>
+  <!-- Sausage -->
+  <rect x="88" y="226" width="336" height="62" rx="31" fill="#7B2D00"/>
+  <!-- Mustard -->
+  <polyline points="100,257 142,241 184,257 226,241 268,257 310,241 352,257 394,241 415,257"
+    stroke="#F5C518" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Bottom bun -->
+  <ellipse cx="256" cy="318" rx="165" ry="52" fill="#C8792B"/>
+</svg>
