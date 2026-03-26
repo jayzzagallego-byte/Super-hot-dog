@@ -64,7 +64,7 @@ export default function Inventory() {
   }
 
   return (
-    <div className="px-4 pt-5 pb-4 space-y-4">
+    <div className="px-4 pt-5 pb-24 space-y-4">
       {/* Low stock alerts */}
       {alerts.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
@@ -259,7 +259,7 @@ function MovementModal({ ingredient, type, onConfirm, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">
           {type === 'entrada' ? '↑ Entrada' : '↓ Salida'} — {ingredient.name}
         </h3>
@@ -327,7 +327,7 @@ function AddIngredientModal({ onConfirm, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">Nuevo ingrediente</h3>
         <div>
           <label className="label">Nombre</label>
@@ -389,7 +389,7 @@ function EditIngredientModal({ ingredient, onConfirm, onDelete, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4">
+      <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 pb-8 space-y-4">
         <h3 className="font-black text-lg">Editar ingrediente</h3>
         <div>
           <label className="label">Nombre</label>

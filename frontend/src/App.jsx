@@ -6,6 +6,7 @@ import NewSale from './pages/NewSale';
 import SalesHistory from './pages/SalesHistory';
 import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }) {
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="historial" element={<SalesHistory />} />
             <Route path="inventario" element={<Inventory />} />
             <Route path="configuracion" element={<Settings />} />
+            <Route path="analiticas" element={<Analytics />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

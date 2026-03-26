@@ -8,7 +8,6 @@ const PAYMENT_METHODS = [
   { key: 'transferencia', label: 'Transferencia', icon: '🏦' },
   { key: 'nequi', label: 'Nequi', icon: '📱' },
   { key: 'daviplata', label: 'Daviplata', icon: '📲' },
-  { key: 'llave', label: 'Llave', icon: '🔑' },
 ];
 
 const CHANNELS = [
@@ -208,7 +207,7 @@ export default function NewSale() {
         </>
       ) : (
         /* Checkout step */
-        <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
           <button
             onClick={() => setStep('menu')}
             className="flex items-center gap-2 text-gray-600 font-semibold"

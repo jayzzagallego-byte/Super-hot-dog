@@ -4,7 +4,7 @@ const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-const PAYMENT_METHODS = ['efectivo', 'datafono', 'transferencia', 'nequi', 'daviplata', 'llave'];
+const PAYMENT_METHODS = ['efectivo', 'datafono', 'transferencia', 'nequi', 'daviplata'];
 const CHANNELS = ['restaurante', 'domicilio', 'rappi'];
 
 // Create a sale
