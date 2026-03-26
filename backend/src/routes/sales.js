@@ -14,11 +14,13 @@ router.post('/', authMiddleware, (req, res) => {
   if (!items || items.length === 0) {
     return res.status(400).json({ error: 'La venta debe tener al menos un producto.' });
   }
-  if (!PAYMENT_METHODS.includes(payment_method)) {
-    return res.status(400).json({ error: 'Método de pago inválido.' });
-  }
   if (!CHANNELS.includes(channel)) {
     return res.status(400).json({ error: 'Canal de venta inválido.' });
+  }
+  // Rappi manages payment directly — no payment method required
+  const effectivePayment = channel === 'rappi' ? 'rappi' : payment_method;
+  if (channel !== 'rappi' && !PAYMENT_METHODS.includes(effectivePayment)) {
+    return res.status(400).json({ error: 'Método de pago inválido.' });
   }
 
   const total = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
@@ -28,7 +30,7 @@ router.post('/', authMiddleware, (req, res) => {
     const saleResult = db.prepare(`
       INSERT INTO sales (total, payment_method, channel, notes)
       VALUES (?, ?, ?, ?)
-    `).run(total, payment_method, channel, notes || null);
+    `).run(total, effectivePayment, channel, notes || null);
 
     const saleId = saleResult.lastInsertRowid;
 
