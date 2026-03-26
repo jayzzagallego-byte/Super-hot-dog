@@ -5,7 +5,8 @@ import {
 } from 'recharts';
 import api from '../api/client';
 
-const COP = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
+const COP = (n) =>
+  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
 
 const PERIODS = [
   { label: '7 días', days: 7 },
@@ -17,11 +18,10 @@ const PERIODS = [
 const COLORS = ['#F59E0B', '#EF4444', '#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
-function daysAgoStr(days) {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-}
+function daysAgoStr(n) { return new Date(Date.now() - n * 864e5).toISOString().split('T')[0]; }
 
 export default function Analytics() {
+  // Period / date range
   const [activePeriod, setActivePeriod] = useState(30);
   const [customMode, setCustomMode] = useState(false);
   const [customFrom, setCustomFrom] = useState('');
@@ -29,18 +29,29 @@ export default function Analytics() {
   const [queryFrom, setQueryFrom] = useState(() => daysAgoStr(30));
   const [queryTo, setQueryTo] = useState(() => todayStr());
 
+  // Data & loading
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [chartType, setChartType] = useState('Barras');
-  const [activeChart, setActiveChart] = useState('productos');
-  const [selectedCats, setSelectedCats] = useState(null); // null = all
 
+  // Chart state
+  const [activeChart, setActiveChart] = useState('productos'); // productos | tiempo | categorias
+  const [chartType, setChartType] = useState('Barras');
+
+  // Category filters per tab
+  const [topCat, setTopCat] = useState(null);   // null = all
+  const [timeCat, setTimeCat] = useState(null);
+  const [compareCats, setCompareCats] = useState(null); // null = all (multi)
+
+  // No-movement section
+  const [noMovOpen, setNoMovOpen] = useState(false);
+  const [noMovCat, setNoMovCat] = useState(null);
+
+  // ── helpers ──────────────────────────────────────────────────
   const selectPeriod = (days) => {
     setActivePeriod(days);
     setCustomMode(false);
     setQueryFrom(daysAgoStr(days));
     setQueryTo(todayStr());
-    setSelectedCats(null);
   };
 
   const applyCustom = () => {
@@ -48,7 +59,6 @@ export default function Analytics() {
     setActivePeriod(null);
     setQueryFrom(customFrom);
     setQueryTo(customTo);
-    setSelectedCats(null);
   };
 
   const load = useCallback(async () => {
@@ -56,47 +66,92 @@ export default function Analytics() {
     try {
       const res = await api.get('/analytics', { params: { from: queryFrom, to: queryTo } });
       setData(res.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+      // reset filters when data changes
+      setTopCat(null); setTimeCat(null); setCompareCats(null); setNoMovCat(null);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, [queryFrom, queryTo]);
 
   useEffect(() => { load(); }, [load]);
 
+  // ── derived data ─────────────────────────────────────────────
+  // All categories that appear in the current period's sales
+  const allCats = [...new Set([
+    ...(data?.topProducts ?? []).map(p => p.category),
+    ...(data?.salesOverTimeByCategory ?? []).map(d => d.category),
+  ].filter(Boolean))].sort();
+
+  // Top products filtered
+  const filteredTop = topCat
+    ? (data?.topProducts ?? []).filter(p => p.category === topCat)
+    : (data?.topProducts ?? []);
+
+  // Time data: total or per-category
+  const filteredTime = timeCat
+    ? (data?.salesOverTimeByCategory ?? []).filter(d => d.category === timeCat)
+    : (data?.salesOverTime ?? []);
+
+  // Compare categories (multi-select filter)
+  const filteredCompare = compareCats
+    ? (data?.byCategory ?? []).filter(c => compareCats.includes(c.category))
+    : (data?.byCategory ?? []);
+
+  // No-movement filter
+  const noMovCats = [...new Set((data?.noMovement ?? []).map(p => p.category).filter(Boolean))].sort();
+  const filteredNoMov = noMovCat
+    ? (data?.noMovement ?? []).filter(p => p.category === noMovCat)
+    : (data?.noMovement ?? []);
+
+  // ── CSV export ────────────────────────────────────────────────
   const exportCSV = () => {
     if (!data) return;
     const rows = [
-      ['Producto', 'Unidades vendidas', 'Ingresos'],
-      ...data.topProducts.map(p => [p.product_name, p.total_qty, p.total_revenue]),
+      ['Producto', 'Categoría', 'Unidades vendidas', 'Ingresos'],
+      ...(data.topProducts ?? []).map(p => [p.product_name, p.category, p.total_qty, p.total_revenue]),
     ];
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `superhotdog_${queryFrom}_${queryTo}.csv`;
-    a.click();
+    const a = document.createElement('a'); a.href = url;
+    a.download = `superhotdog_${queryFrom}_${queryTo}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Categories from data for filter
-  const allCategories = data?.byCategory?.map(c => c.category) ?? [];
-  const filteredCategories = selectedCats
-    ? data?.byCategory?.filter(c => selectedCats.includes(c.category))
-    : data?.byCategory;
+  // ── category filter pill component ───────────────────────────
+  const CatPills = ({ value, onChange }) => (
+    <div className="flex gap-2 overflow-x-auto pb-1 flex-shrink-0">
+      <button
+        onClick={() => onChange(null)}
+        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+          value === null ? 'border-brand-dark bg-brand-dark text-brand-yellow' : 'border-gray-200 text-gray-500'
+        }`}
+      >
+        Todos
+      </button>
+      {allCats.map(cat => (
+        <button
+          key={cat}
+          onClick={() => onChange(cat === value ? null : cat)}
+          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+            value === cat ? 'border-brand-dark bg-brand-dark text-brand-yellow' : 'border-gray-200 text-gray-500'
+          }`}
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+  );
 
-  const toggleCat = (cat) => {
-    if (!selectedCats) {
-      // Start filtering: deselect this one
-      setSelectedCats(allCategories.filter(c => c !== cat));
-    } else if (selectedCats.includes(cat)) {
-      const next = selectedCats.filter(c => c !== cat);
-      setSelectedCats(next.length === 0 ? allCategories : next);
+  // ── compare category multi-select ────────────────────────────
+  const toggleCompareCat = (cat) => {
+    if (!compareCats) {
+      setCompareCats((data?.byCategory ?? []).map(c => c.category).filter(c => c !== cat));
+    } else if (compareCats.includes(cat)) {
+      const next = compareCats.filter(c => c !== cat);
+      setCompareCats(next.length === 0 ? null : next.length === (data?.byCategory ?? []).length ? null : next);
     } else {
-      const next = [...selectedCats, cat];
-      setSelectedCats(next.length === allCategories.length ? null : next);
+      const next = [...compareCats, cat];
+      setCompareCats(next.length === (data?.byCategory ?? []).length ? null : next);
     }
   };
 
@@ -113,25 +168,20 @@ export default function Analytics() {
         </button>
       </div>
 
-      {/* Period selector */}
-      <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
+      {/* Period buttons */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {PERIODS.map(p => (
-          <button
-            key={p.days}
-            onClick={() => selectPeriod(p.days)}
+          <button key={p.days} onClick={() => selectPeriod(p.days)}
             className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
               activePeriod === p.days && !customMode ? 'bg-brand-dark text-brand-yellow' : 'bg-white text-gray-600 border border-gray-200'
-            }`}
-          >
+            }`}>
             {p.label}
           </button>
         ))}
-        <button
-          onClick={() => { setCustomMode(m => !m); }}
+        <button onClick={() => setCustomMode(m => !m)}
           className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
             customMode ? 'bg-brand-dark text-brand-yellow' : 'bg-white text-gray-600 border border-gray-200'
-          }`}
-        >
+          }`}>
           Personalizado
         </button>
       </div>
@@ -142,28 +192,14 @@ export default function Analytics() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Desde</label>
-              <input
-                type="date"
-                className="input text-sm"
-                value={customFrom}
-                onChange={e => setCustomFrom(e.target.value)}
-              />
+              <input type="date" className="input text-sm" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
             </div>
             <div>
               <label className="label">Hasta</label>
-              <input
-                type="date"
-                className="input text-sm"
-                value={customTo}
-                onChange={e => setCustomTo(e.target.value)}
-              />
+              <input type="date" className="input text-sm" value={customTo} onChange={e => setCustomTo(e.target.value)} />
             </div>
           </div>
-          <button
-            onClick={applyCustom}
-            disabled={!customFrom || !customTo}
-            className="btn-primary w-full disabled:opacity-50"
-          >
+          <button onClick={applyCustom} disabled={!customFrom || !customTo} className="btn-primary w-full disabled:opacity-50">
             Aplicar
           </button>
         </div>
@@ -198,80 +234,141 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Chart selector tabs */}
+          {/* Chart tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {[['productos', 'Top productos'], ['tiempo', 'En el tiempo'], ['categorias', 'Por categoría']].map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setActiveChart(key)}
+            {[
+              ['productos', 'Top productos'],
+              ['tiempo', 'En el tiempo'],
+              ['categorias', 'Comparar categorías'],
+            ].map(([key, label]) => (
+              <button key={key} onClick={() => setActiveChart(key)}
                 className={`flex-shrink-0 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
                   activeChart === key ? 'bg-brand-red text-white' : 'bg-white text-gray-600 border border-gray-200'
-                }`}
-              >
+                }`}>
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Chart type selector (not for time chart) */}
-          {activeChart !== 'tiempo' && (
-            <div className="flex gap-2">
-              {['Líneas', 'Barras', 'Torta'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setChartType(t)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    chartType === t ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+          {/* Category filter — Top productos & En el tiempo */}
+          {(activeChart === 'productos' || activeChart === 'tiempo') && allCats.length > 0 && (
+            <CatPills
+              value={activeChart === 'productos' ? topCat : timeCat}
+              onChange={activeChart === 'productos' ? setTopCat : setTimeCat}
+            />
           )}
 
-          {/* Category filter (only when 'Por categoría' is active) */}
-          {activeChart === 'categorias' && allCategories.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {allCategories.map(cat => {
-                const active = !selectedCats || selectedCats.includes(cat);
+          {/* Category multi-filter — Comparar categorías */}
+          {activeChart === 'categorias' && (data?.byCategory ?? []).length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {(data.byCategory).map(c => {
+                const active = !compareCats || compareCats.includes(c.category);
                 return (
-                  <button
-                    key={cat}
-                    onClick={() => toggleCat(cat)}
+                  <button key={c.category} onClick={() => toggleCompareCat(c.category)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
                       active ? 'border-brand-dark bg-brand-dark text-brand-yellow' : 'border-gray-200 text-gray-400'
-                    }`}
-                  >
-                    {cat}
+                    }`}>
+                    {c.category}
                   </button>
                 );
               })}
             </div>
           )}
 
-          {/* Charts */}
-          <div className="card p-4">
-            {activeChart === 'tiempo' && <TimeChart data={data.salesOverTime} />}
-            {activeChart === 'productos' && <ProductChart data={data.topProducts} chartType={chartType} />}
-            {activeChart === 'categorias' && <CategoryChart data={filteredCategories} chartType={chartType} />}
+          {/* Chart type selector */}
+          <div className="flex gap-2">
+            {['Líneas', 'Barras', 'Torta'].map(t => (
+              <button key={t} onClick={() => setChartType(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  chartType === t ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>
+                {t}
+              </button>
+            ))}
           </div>
 
-          {/* No movement products */}
+          {/* Chart */}
+          <div className="card p-4">
+            {activeChart === 'productos' && (
+              <ProductChart
+                data={filteredTop}
+                chartType={chartType}
+                title={topCat ? `Top — ${topCat}` : 'Top productos'}
+              />
+            )}
+            {activeChart === 'tiempo' && (
+              <TimeChart
+                data={filteredTime}
+                chartType={chartType}
+                title={timeCat ? `${timeCat} en el tiempo` : 'Ventas diarias (total)'}
+              />
+            )}
+            {activeChart === 'categorias' && (
+              <CategoryChart
+                data={filteredCompare}
+                chartType={chartType}
+              />
+            )}
+          </div>
+
+          {/* No-movement section — collapsible */}
           {data.noMovement.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl">😴</span>
-                <h3 className="font-bold text-amber-800">Sin ventas en 30 días ({data.noMovement.length})</h3>
-              </div>
-              <div className="space-y-1">
-                {data.noMovement.map((p, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span className="text-amber-800">{p.name}</span>
-                    <span className="text-amber-600 text-xs">{p.category}</span>
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl overflow-hidden">
+              {/* Header / toggle */}
+              <button
+                className="w-full flex items-center justify-between px-4 py-3"
+                onClick={() => setNoMovOpen(o => !o)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">😴</span>
+                  <span className="font-bold text-amber-800 text-sm">
+                    Sin ventas en 30 días ({filteredNoMov.length}{noMovCat ? ` en ${noMovCat}` : ''} / {data.noMovement.length} total)
+                  </span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-amber-600 flex-shrink-0 transition-transform ${noMovOpen ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {noMovOpen && (
+                <div className="px-4 pb-4 space-y-3">
+                  {/* Category filter */}
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setNoMovCat(null)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                        noMovCat === null ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-300 text-amber-700'
+                      }`}
+                    >
+                      Todas
+                    </button>
+                    {noMovCats.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setNoMovCat(c => c === cat ? null : cat)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${
+                          noMovCat === cat ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-300 text-amber-700'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+
+                  {/* Product list */}
+                  <div className="space-y-1">
+                    {filteredNoMov.map((p, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-amber-800">{p.name}</span>
+                        <span className="text-amber-600 text-xs">{p.category}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -280,17 +377,57 @@ export default function Analytics() {
   );
 }
 
-function TimeChart({ data }) {
+// ── Chart components ─────────────────────────────────────────────
+
+function TimeChart({ data, chartType, title }) {
   if (!data || data.length === 0) return <EmptyChart />;
-  const formatted = data.map(d => ({ ...d, day: d.day.slice(5) }));
+  const fmt = data.map(d => ({ ...d, day: d.day.slice(5) }));
+
+  if (chartType === 'Torta') {
+    // Aggregate totals per day label for pie
+    return (
+      <div>
+        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={fmt} dataKey="total" nameKey="day" cx="50%" cy="50%" outerRadius={90}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+              {fmt.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={v => [COP(v), 'Total']} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  if (chartType === 'Barras') {
+    return (
+      <div>
+        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={fmt} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+            <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+            <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+            <Tooltip formatter={v => [COP(v), 'Total']} />
+            <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+              {fmt.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  // Líneas (default)
   return (
     <div>
-      <p className="font-bold text-sm mb-3 text-gray-700">Ventas diarias</p>
+      <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={formatted} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+        <LineChart data={fmt} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
           <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-          <Tooltip formatter={(v) => [COP(v), 'Total']} labelFormatter={l => `Día: ${l}`} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={v => [COP(v), 'Total']} labelFormatter={l => `Día: ${l}`} />
           <Line type="monotone" dataKey="total" stroke="#F59E0B" strokeWidth={2} dot={false} />
         </LineChart>
       </ResponsiveContainer>
@@ -298,18 +435,19 @@ function TimeChart({ data }) {
   );
 }
 
-function ProductChart({ data, chartType }) {
+function ProductChart({ data, chartType, title }) {
   if (!data || data.length === 0) return <EmptyChart />;
-  const top10 = data.slice(0, 10);
+  const top = data.slice(0, 10);
 
   if (chartType === 'Torta') {
     return (
       <div>
-        <p className="font-bold text-sm mb-3 text-gray-700">Top productos (unidades)</p>
+        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
-            <Pie data={top10} dataKey="total_qty" nameKey="product_name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name?.split(' ')[0]} ${(percent*100).toFixed(0)}%`} labelLine={false}>
-              {top10.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            <Pie data={top} dataKey="total_qty" nameKey="product_name" cx="50%" cy="50%" outerRadius={90}
+              label={({ name, percent }) => `${name?.split(' ')[0]} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+              {top.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
             <Tooltip formatter={(v, n) => [v + ' uds', n]} />
           </PieChart>
@@ -320,14 +458,14 @@ function ProductChart({ data, chartType }) {
 
   return (
     <div>
-      <p className="font-bold text-sm mb-3 text-gray-700">Top productos (unidades vendidas)</p>
-      <ResponsiveContainer width="100%" height={Math.max(200, top10.length * 32)}>
-        <BarChart data={top10} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
+      <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
+      <ResponsiveContainer width="100%" height={Math.max(200, top.length * 32)}>
+        <BarChart data={top} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
           <XAxis type="number" tick={{ fontSize: 10 }} />
-          <YAxis type="category" dataKey="product_name" tick={{ fontSize: 9 }} width={100} />
-          <Tooltip formatter={(v) => [v + ' uds', 'Vendidos']} />
+          <YAxis type="category" dataKey="product_name" tick={{ fontSize: 9 }} width={110} />
+          <Tooltip formatter={v => [v + ' uds', 'Vendidos']} />
           <Bar dataKey="total_qty" radius={[0, 4, 4, 0]}>
-            {top10.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            {top.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -344,10 +482,11 @@ function CategoryChart({ data, chartType }) {
         <p className="font-bold text-sm mb-3 text-gray-700">Ingresos por categoría</p>
         <ResponsiveContainer width="100%" height={260}>
           <PieChart>
-            <Pie data={data} dataKey="revenue" nameKey="category" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+            <Pie data={data} dataKey="revenue" nameKey="category" cx="50%" cy="50%" outerRadius={90}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
               {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
-            <Tooltip formatter={(v) => [COP(v), 'Ingresos']} />
+            <Tooltip formatter={v => [COP(v), 'Ingresos']} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -360,8 +499,8 @@ function CategoryChart({ data, chartType }) {
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 5, right: 5, bottom: 20, left: 0 }}>
           <XAxis dataKey="category" tick={{ fontSize: 10 }} angle={-25} textAnchor="end" />
-          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-          <Tooltip formatter={(v) => [COP(v), 'Ingresos']} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={v => [COP(v), 'Ingresos']} />
           <Bar dataKey="revenue" radius={[4, 4, 0, 0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Bar>
@@ -375,7 +514,8 @@ function EmptyChart() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
       <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
       <p className="text-sm">Sin datos en este período</p>
     </div>
