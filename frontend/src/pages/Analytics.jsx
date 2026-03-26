@@ -4,7 +4,6 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import api from '../api/client';
-import InsightsCard from '../components/InsightsCard';
 import { todayColombia, daysAgoColombia } from '../utils/dates';
 
 const COP = (n) =>
@@ -247,9 +246,6 @@ export default function Analytics() {
               )}
             </div>
           </div>
-
-          {/* Insights automáticos */}
-          <InsightsCard />
 
           {/* Chart tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
