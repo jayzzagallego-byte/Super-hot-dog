@@ -34,6 +34,7 @@ export default function NewSale() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [channel, setChannel] = useState('');
   const [notes, setNotes] = useState('');
+  const [cashReceived, setCashReceived] = useState('');
   const [step, setStep] = useState('menu'); // menu | checkout
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -135,6 +136,7 @@ export default function NewSale() {
         setPaymentMethod('');
         setChannel('');
         setNotes('');
+        setCashReceived('');
         setStep('menu');
         setSuccess(false);
       }, 2000);
@@ -294,6 +296,39 @@ export default function NewSale() {
               ))}
             </div>
           </div>
+
+          {/* Cash change calculator */}
+          {paymentMethod === 'efectivo' && (
+            <div className="card space-y-3">
+              <h3 className="font-bold text-gray-700">💵 Calculadora de vueltas</h3>
+              <div>
+                <label className="label">Efectivo recibido</label>
+                <input
+                  type="number"
+                  className="input text-lg font-bold"
+                  placeholder="0"
+                  value={cashReceived}
+                  onChange={e => setCashReceived(e.target.value)}
+                />
+              </div>
+              {cashReceived !== '' && (
+                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                  Number(cashReceived) >= cartTotal
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <span className="font-semibold text-gray-700">
+                    {Number(cashReceived) >= cartTotal ? 'Vueltas' : 'Falta'}
+                  </span>
+                  <span className={`font-black text-xl ${
+                    Number(cashReceived) >= cartTotal ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {fmt(Math.abs(Number(cashReceived) - cartTotal))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Channel */}
           <div className="card">

@@ -41,6 +41,7 @@ export default function OrderDetail() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [channel, setChannel] = useState('');
   const [notes, setNotes] = useState('');
+  const [cashReceived, setCashReceived] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -327,6 +328,39 @@ export default function OrderDetail() {
               ))}
             </div>
           </div>
+
+          {/* Cash change calculator */}
+          {paymentMethod === 'efectivo' && (
+            <div className="card space-y-3">
+              <h3 className="font-bold text-gray-700">💵 Calculadora de vueltas</h3>
+              <div>
+                <label className="label">Efectivo recibido</label>
+                <input
+                  type="number"
+                  className="input text-lg font-bold"
+                  placeholder="0"
+                  value={cashReceived}
+                  onChange={e => setCashReceived(e.target.value)}
+                />
+              </div>
+              {cashReceived !== '' && (
+                <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                  Number(cashReceived) >= orderTotal
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <span className="font-semibold text-gray-700">
+                    {Number(cashReceived) >= orderTotal ? 'Vueltas' : 'Falta'}
+                  </span>
+                  <span className={`font-black text-xl ${
+                    Number(cashReceived) >= orderTotal ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {fmt(Math.abs(Number(cashReceived) - orderTotal))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Channel */}
           <div className="card">
