@@ -20,6 +20,8 @@ const BASES = ['Pan', 'Arepa', 'Tortilla', 'Lechuga'];
 const BASE_CATEGORIES = ['Hot Dogs', 'Burgers', 'Hamburguesas'];
 const ADDITION_CATEGORY = 'Adiciones';
 const NO_ADDITIONS_CATEGORIES = ['Adiciones', 'Bebidas'];
+const SALSAS = ['Salsa de ajo', 'Tomate', 'Mostaza', 'Piña', 'Rosada', 'BBQ'];
+const SALSAS_CATEGORIES = ['Hot Dogs', 'Hamburguesas', 'Mazorcadas'];
 
 function fmt(v) {
   return '$' + Number(v).toLocaleString('es-CO');
@@ -77,7 +79,7 @@ export default function NewSale() {
 
   const addToCart = () => {
     if (!modal) return;
-    const { product, isCombo, base, combo_drink, additions, removals, quantity, categoryName } = modal;
+    const { product, isCombo, base, combo_drink, additions, removals, salsas, quantity, categoryName } = modal;
     const unitPrice = isCombo && product.combo_price ? product.combo_price : product.price;
     const additionsTotal = additions.reduce((sum, a) => sum + a.price, 0);
     const totalPrice = (unitPrice + additionsTotal);
@@ -93,6 +95,7 @@ export default function NewSale() {
       combo_drink: combo_drink || null,
       additions: additions.map(a => a.name),
       removals: removals || [],
+      salsas: salsas || [],
       categoryName,
     }]);
     setModal(null);
@@ -120,6 +123,7 @@ export default function NewSale() {
           combo_drink: item.combo_drink,
           additions: item.additions,
           removals: item.removals,
+          salsas: item.salsas,
         })),
         payment_method: paymentMethod,
         channel,
@@ -240,11 +244,14 @@ export default function NewSale() {
                   {item.is_combo && <p className="text-xs text-brand-red">Combo</p>}
                   {item.base && <p className="text-xs text-gray-500">Base: {item.base}</p>}
                   {item.combo_drink && <p className="text-xs text-blue-500">🥤 {item.combo_drink}</p>}
-                  {item.additions?.length > 0 && (
-                    <p className="text-xs text-gray-500">+ {item.additions.join(', ')}</p>
+                  {item.salsas?.length > 0 && (
+                    <p className="text-xs text-green-600">Salsas: {item.salsas.join(', ')}</p>
                   )}
                   {item.removals?.length > 0 && (
                     <p className="text-xs text-red-500">Sin: {item.removals.join(', ')}</p>
+                  )}
+                  {item.additions?.length > 0 && (
+                    <p className="text-xs text-gray-500">+ {item.additions.join(', ')}</p>
                   )}
                   <p className="text-sm font-bold text-gray-700 mt-1">{fmt(item.unit_price)} × {item.quantity}</p>
                 </div>
@@ -359,13 +366,21 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
   const { product, categoryName } = modal;
   const needsBase = BASE_CATEGORIES.includes(categoryName);
   const showAdditions = !NO_ADDITIONS_CATEGORIES.includes(categoryName);
+  const showSalsas = SALSAS_CATEGORIES.includes(categoryName);
 
   const [isCombo, setIsCombo] = useState(false);
   const [base, setBase] = useState('Pan');
   const [combo_drink, setComboDrink] = useState('');
+  const [salsas, setSalsas] = useState([]);
   const [additions, setAdditions] = useState([]);
   const [removals, setRemovals] = useState([]);
   const [quantity, setQuantity] = useState(1);
+
+  const toggleSalsa = (salsa) => {
+    setSalsas(prev =>
+      prev.includes(salsa) ? prev.filter(s => s !== salsa) : [...prev, salsa]
+    );
+  };
 
   // Parse description into removable ingredient list
   const ingredientList = product.description
@@ -432,7 +447,7 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
           </div>
         )}
 
-        {/* Base selection */}
+        {/* 1. Base */}
         {needsBase && (
           <div>
             <p className="label">Base</p>
@@ -478,23 +493,24 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
           </div>
         )}
 
-        {/* Additions */}
-        {showAdditions && additionProducts.length > 0 && (
+        {/* 2. Salsas */}
+        {showSalsas && (
           <div>
-            <p className="label">Adiciones</p>
-            <div className="grid grid-cols-2 gap-2">
-              {additionProducts.map(addition => {
-                const selected = additions.find(a => a.id === addition.id);
+            <p className="label">Salsas</p>
+            <div className="flex flex-wrap gap-2">
+              {SALSAS.map(salsa => {
+                const selected = salsas.includes(salsa);
                 return (
                   <button
-                    key={addition.id}
-                    onClick={() => toggleAddition(addition)}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-colors ${
-                      selected ? 'border-brand-yellow bg-yellow-50' : 'border-gray-200'
+                    key={salsa}
+                    onClick={() => toggleSalsa(salsa)}
+                    className={`px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors ${
+                      selected
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 text-gray-600'
                     }`}
                   >
-                    <span className="text-sm font-medium text-gray-700">{addition.name}</span>
-                    <span className="text-xs font-bold text-gray-600">+{fmt(addition.price)}</span>
+                    {salsa}
                   </button>
                 );
               })}
@@ -502,7 +518,7 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
           </div>
         )}
 
-        {/* Removals — quitar ingredientes del producto */}
+        {/* 3. Quitar ingredientes */}
         {ingredientList.length > 0 && (
           <div>
             <p className="label">Quitar ingredientes</p>
@@ -530,7 +546,31 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
           </div>
         )}
 
-        {/* Quantity */}
+        {/* 4. Adiciones */}
+        {showAdditions && additionProducts.length > 0 && (
+          <div>
+            <p className="label">Adiciones</p>
+            <div className="grid grid-cols-2 gap-2">
+              {additionProducts.map(addition => {
+                const selected = additions.find(a => a.id === addition.id);
+                return (
+                  <button
+                    key={addition.id}
+                    onClick={() => toggleAddition(addition)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-colors ${
+                      selected ? 'border-brand-yellow bg-yellow-50' : 'border-gray-200'
+                    }`}
+                  >
+                    <span className="text-sm font-medium text-gray-700">{addition.name}</span>
+                    <span className="text-xs font-bold text-gray-600">+{fmt(addition.price)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 5. Cantidad */}
         <div className="flex items-center justify-between">
           <p className="label mb-0">Cantidad</p>
           <div className="flex items-center gap-3">
@@ -552,8 +592,7 @@ function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
 
         <button
           onClick={() => {
-            // pass state back
-            Object.assign(modal, { isCombo, base, combo_drink, additions, removals, quantity });
+            Object.assign(modal, { isCombo, base, combo_drink, salsas, additions, removals, quantity });
             onAdd();
           }}
           className="btn-primary w-full flex items-center justify-between"

@@ -34,8 +34,8 @@ router.post('/', authMiddleware, (req, res) => {
 
     // Insert items
     const insertItem = db.prepare(`
-      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, is_combo, base, combo_drink, additions, removals)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO sale_items (sale_id, product_id, product_name, quantity, unit_price, is_combo, base, combo_drink, additions, removals, salsas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (const item of items) {
@@ -49,7 +49,8 @@ router.post('/', authMiddleware, (req, res) => {
         item.base || null,
         item.combo_drink || null,
         item.additions ? JSON.stringify(item.additions) : null,
-        item.removals && item.removals.length > 0 ? JSON.stringify(item.removals) : null
+        item.removals && item.removals.length > 0 ? JSON.stringify(item.removals) : null,
+        item.salsas && item.salsas.length > 0 ? JSON.stringify(item.salsas) : null
       );
 
       // Deduct ingredients if recipe exists
@@ -113,6 +114,7 @@ router.get('/', authMiddleware, (req, res) => {
       ...item,
       additions: item.additions ? JSON.parse(item.additions) : [],
       removals: item.removals ? JSON.parse(item.removals) : [],
+      salsas: item.salsas ? JSON.parse(item.salsas) : [],
       combo_drink: item.combo_drink || null,
     }))
   }));
@@ -129,6 +131,7 @@ router.get('/:id', authMiddleware, (req, res) => {
     ...item,
     additions: item.additions ? JSON.parse(item.additions) : [],
     removals: item.removals ? JSON.parse(item.removals) : [],
+    salsas: item.salsas ? JSON.parse(item.salsas) : [],
   }));
 
   res.json({ ...sale, items });

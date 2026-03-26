@@ -63,6 +63,7 @@ db.exec('PRAGMA foreign_keys = ON');
 // Safe migrations
 try { db.exec('ALTER TABLE sale_items ADD COLUMN removals TEXT'); } catch (_) {}
 try { db.exec('ALTER TABLE sale_items ADD COLUMN combo_drink TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE sale_items ADD COLUMN salsas TEXT'); } catch (_) {}
 try { db.exec("UPDATE categories SET name = 'Hamburguesas' WHERE name = 'Burgers'"); } catch (_) {}
 
 // Create tables
