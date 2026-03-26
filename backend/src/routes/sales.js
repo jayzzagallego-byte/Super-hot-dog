@@ -89,8 +89,8 @@ router.get('/', authMiddleware, (req, res) => {
   let where = [];
   let params = [];
 
-  if (from) { where.push("date(s.date) >= date(?)"); params.push(from); }
-  if (to) { where.push("date(s.date) <= date(?)"); params.push(to); }
+  if (from) { where.push("date(s.date, '-5 hours') >= date(?)"); params.push(from); }
+  if (to) { where.push("date(s.date, '-5 hours') <= date(?)"); params.push(to); }
   if (payment_method) { where.push("s.payment_method = ?"); params.push(payment_method); }
   if (channel) { where.push("s.channel = ?"); params.push(channel); }
 
@@ -148,8 +148,9 @@ router.delete('/:id', authMiddleware, (req, res) => {
 
 // Dashboard stats
 router.get('/stats/summary', authMiddleware, (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    .toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
   const monthStart = today.slice(0, 7) + '-01';
 
   const statsQuery = (from, to) => db.prepare(`
@@ -166,7 +167,7 @@ router.get('/stats/summary', authMiddleware, (req, res) => {
       COALESCE(SUM(CASE WHEN channel='domicilio' THEN total ELSE 0 END), 0) as domicilio,
       COALESCE(SUM(CASE WHEN channel='rappi' THEN total ELSE 0 END), 0) as rappi
     FROM sales
-    WHERE date(date) >= date(?) AND date(date) <= date(?)
+    WHERE date(date, '-5 hours') >= date(?) AND date(date, '-5 hours') <= date(?)
   `).get(from, to);
 
   const today_stats = statsQuery(today, today);

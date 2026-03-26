@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../api/client';
 import { useShift } from '../context/ShiftContext';
+import InsightsCard from '../components/InsightsCard';
+import { fmtTime, fmtDate, fmtDateLong } from '../utils/dates';
 
 const PAYMENT_LABELS = {
   efectivo:      { label: 'Efectivo',      color: 'bg-green-100 text-green-800',   dot: 'bg-green-500' },
@@ -73,6 +75,9 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Insights automáticos */}
+      <InsightsCard />
+
       {/* Main stat */}
       <div className="card bg-brand-dark text-white">
         <p className="text-gray-400 text-sm font-medium">Total vendido — {periodLabels[period]}</p>
@@ -141,9 +146,8 @@ export default function Dashboard() {
             {stats.recent.map(sale => {
               const pm = PAYMENT_LABELS[sale.payment_method];
               const ch = CHANNEL_LABELS[sale.channel];
-              const date = new Date(sale.date);
-              const timeStr = date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-              const dateStr = date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' });
+              const timeStr = fmtTime(sale.date);
+              const dateStr = fmtDate(sale.date);
               return (
                 <div key={sale.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <div className="flex items-center gap-2">
@@ -270,8 +274,7 @@ function ShiftSummaryModal({ today, shift, shiftTotal, updateOpeningCash, onEnd,
   const [cashInput, setCashInput] = useState(shift?.openingCash ?? 0);
   const [confirmEnd, setConfirmEnd] = useState(false);
 
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const dateStr = fmtDateLong();
 
   const payments = Object.entries(PAYMENT_LABELS)
     .map(([key, meta]) => ({ ...meta, value: today[key] || 0 }))

@@ -6,8 +6,10 @@ const router = express.Router();
 
 router.get('/', authMiddleware, (req, res) => {
   const { from, to } = req.query;
-  const today = new Date().toISOString().split('T')[0];
-  const defaultFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const todayCO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const today = todayCO;
+  const defaultFrom = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
   const fromDate = from || defaultFrom;
   const toDate = to || today;
 
@@ -21,7 +23,7 @@ router.get('/', authMiddleware, (req, res) => {
     JOIN sales s ON si.sale_id = s.id
     LEFT JOIN products p ON si.product_id = p.id
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE date(s.date) BETWEEN date(?) AND date(?)
+    WHERE date(s.date, '-5 hours') BETWEEN date(?) AND date(?)
     GROUP BY si.product_name
     ORDER BY total_qty DESC
     LIMIT 50
@@ -29,27 +31,27 @@ router.get('/', authMiddleware, (req, res) => {
 
   // Sales over time (daily) — total
   const salesOverTime = db.prepare(`
-    SELECT date(s.date) as day,
+    SELECT date(s.date, '-5 hours') as day,
            COUNT(*) as count,
            SUM(s.total) as total
     FROM sales s
-    WHERE date(s.date) BETWEEN date(?) AND date(?)
-    GROUP BY date(s.date)
+    WHERE date(s.date, '-5 hours') BETWEEN date(?) AND date(?)
+    GROUP BY date(s.date, '-5 hours')
     ORDER BY day ASC
   `).all(fromDate, toDate);
 
   // Sales over time per category (daily)
   const salesOverTimeByCategory = db.prepare(`
-    SELECT date(s.date) as day,
+    SELECT date(s.date, '-5 hours') as day,
            COALESCE(c.name, 'Otro') as category,
            SUM(si.quantity * si.unit_price) as total
     FROM sale_items si
     JOIN sales s ON si.sale_id = s.id
     LEFT JOIN products p ON si.product_id = p.id
     LEFT JOIN categories c ON p.category_id = c.id
-    WHERE date(s.date) BETWEEN date(?) AND date(?)
+    WHERE date(s.date, '-5 hours') BETWEEN date(?) AND date(?)
     AND si.product_id IS NOT NULL
-    GROUP BY date(s.date), c.name
+    GROUP BY date(s.date, '-5 hours'), c.name
     ORDER BY day ASC
   `).all(fromDate, toDate);
 
@@ -59,25 +61,25 @@ router.get('/', authMiddleware, (req, res) => {
            COUNT(*) as count,
            COALESCE(SUM(total), 0) as total
     FROM sales
-    WHERE date(date) BETWEEN date(?) AND date(?)
+    WHERE date(date, '-5 hours') BETWEEN date(?) AND date(?)
   `).get(fromDate, toDate);
 
   // Week over week trend
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const thisWeekStart = new Date(now);
-  thisWeekStart.setDate(now.getDate() - dayOfWeek);
+  const nowCO = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+  const dayOfWeek = nowCO.getDay();
+  const thisWeekStart = new Date(nowCO);
+  thisWeekStart.setDate(nowCO.getDate() - dayOfWeek);
   const lastWeekStart = new Date(thisWeekStart);
   lastWeekStart.setDate(thisWeekStart.getDate() - 7);
   const lastWeekEnd = new Date(thisWeekStart);
   lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
 
-  const thisWeekStr = thisWeekStart.toISOString().split('T')[0];
-  const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
-  const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0];
+  const thisWeekStr = thisWeekStart.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const lastWeekStartStr = lastWeekStart.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const lastWeekEndStr = lastWeekEnd.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
-  const thisWeek = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE date(date) BETWEEN date(?) AND date(?)`).get(thisWeekStr, today);
-  const lastWeek = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE date(date) BETWEEN date(?) AND date(?)`).get(lastWeekStartStr, lastWeekEndStr);
+  const thisWeek = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE date(date, '-5 hours') BETWEEN date(?) AND date(?)`).get(thisWeekStr, today);
+  const lastWeek = db.prepare(`SELECT COALESCE(SUM(total), 0) as total FROM sales WHERE date(date, '-5 hours') BETWEEN date(?) AND date(?)`).get(lastWeekStartStr, lastWeekEndStr);
   const weekTrend = lastWeek.total > 0 ? ((thisWeek.total - lastWeek.total) / lastWeek.total) * 100 : null;
 
   // Sales by category
@@ -89,7 +91,7 @@ router.get('/', authMiddleware, (req, res) => {
     JOIN products p ON si.product_id = p.id
     JOIN categories c ON p.category_id = c.id
     JOIN sales s ON si.sale_id = s.id
-    WHERE date(s.date) BETWEEN date(?) AND date(?)
+    WHERE date(s.date, '-5 hours') BETWEEN date(?) AND date(?)
     AND si.product_id IS NOT NULL
     GROUP BY c.name
     ORDER BY revenue DESC
@@ -107,7 +109,7 @@ router.get('/', authMiddleware, (req, res) => {
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       WHERE si.product_id IS NOT NULL
-      AND date(s.date) >= date('now', '-30 days')
+      AND date(s.date, '-5 hours') >= date('now', '-5 hours', '-30 days')
     ))
     ORDER BY c.name, p.name
   `).all();

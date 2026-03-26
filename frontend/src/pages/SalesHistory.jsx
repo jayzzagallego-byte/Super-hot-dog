@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api/client';
+import { fmtTime, fmtDate } from '../utils/dates';
 
 const PAYMENT_LABELS = {
   efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
@@ -24,7 +25,7 @@ export default function SalesHistory() {
   const [expandedId, setExpandedId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
   const [filters, setFilters] = useState({ from: today, to: today, payment_method: '', channel: '' });
 
   const fetchSales = useCallback(async () => {
@@ -135,9 +136,8 @@ export default function SalesHistory() {
           {sales.map(sale => {
             const pm = PAYMENT_LABELS[sale.payment_method];
             const ch = CHANNEL_LABELS[sale.channel];
-            const date = new Date(sale.date);
-            const timeStr = date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-            const dateStr = date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            const timeStr = fmtTime(sale.date);
+            const dateStr = fmtDate(sale.date);
             const isExpanded = expandedId === sale.id;
 
             return (

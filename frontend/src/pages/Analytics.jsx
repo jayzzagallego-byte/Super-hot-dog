@@ -4,6 +4,8 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import api from '../api/client';
+import InsightsCard from '../components/InsightsCard';
+import { todayColombia, daysAgoColombia } from '../utils/dates';
 
 const COP = (n) =>
   new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(n);
@@ -30,8 +32,8 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
   );
 };
 
-function todayStr() { return new Date().toISOString().split('T')[0]; }
-function daysAgoStr(n) { return new Date(Date.now() - n * 864e5).toISOString().split('T')[0]; }
+const todayStr = todayColombia;
+const daysAgoStr = daysAgoColombia;
 
 export default function Analytics() {
   // Period / date range
@@ -245,6 +247,9 @@ export default function Analytics() {
               )}
             </div>
           </div>
+
+          {/* Insights automáticos */}
+          <InsightsCard />
 
           {/* Chart tabs */}
           <div className="flex gap-2 overflow-x-auto pb-1">
