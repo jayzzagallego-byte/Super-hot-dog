@@ -56,6 +56,12 @@ export default function NewSale() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Auto-set payment method for Rappi channel (Rappi pays directly, no cash/card)
+  useEffect(() => {
+    if (channel === 'rappi') setPaymentMethod('rappi');
+    else if (paymentMethod === 'rappi') setPaymentMethod('');
+  }, [channel]);
+
   const additionsCategory = categories.find(c => c.name === ADDITION_CATEGORY);
   const additionProducts = additionsCategory?.products || [];
 
@@ -107,8 +113,8 @@ export default function NewSale() {
   const cartTotal = cart.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
 
   const handleSubmit = async () => {
-    if (!paymentMethod) return setError('Selecciona el método de pago.');
     if (!channel) return setError('Selecciona el canal de venta.');
+    if (channel !== 'rappi' && !paymentMethod) return setError('Selecciona el método de pago.');
     if (cart.length === 0) return setError('Agrega al menos un producto.');
     setError('');
     setSubmitting(true);
@@ -276,26 +282,52 @@ export default function NewSale() {
             </div>
           </div>
 
-          {/* Payment method */}
+          {/* Canal de venta — FIRST */}
           <div className="card">
-            <h3 className="font-bold text-gray-700 mb-3">Método de pago</h3>
+            <h3 className="font-bold text-gray-700 mb-3">Canal de venta</h3>
             <div className="grid grid-cols-3 gap-2">
-              {PAYMENT_METHODS.map(pm => (
+              {CHANNELS.map(ch => (
                 <button
-                  key={pm.key}
-                  onClick={() => setPaymentMethod(pm.key)}
+                  key={ch.key}
+                  onClick={() => setChannel(ch.key)}
                   className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-colors ${
-                    paymentMethod === pm.key
+                    channel === ch.key
                       ? 'border-brand-yellow bg-yellow-50'
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <span className="text-2xl">{pm.icon}</span>
-                  <span className="text-xs font-semibold text-gray-700 mt-1 text-center leading-tight">{pm.label}</span>
+                  <span className="text-2xl">{ch.icon}</span>
+                  <span className="text-xs font-semibold text-gray-700 mt-1 text-center">{ch.label}</span>
                 </button>
               ))}
             </div>
+            {channel === 'rappi' && (
+              <p className="text-xs text-gray-400 mt-2 text-center">Rappi gestiona el pago directamente</p>
+            )}
           </div>
+
+          {/* Método de pago — hidden for Rappi */}
+          {channel !== 'rappi' && (
+            <div className="card">
+              <h3 className="font-bold text-gray-700 mb-3">Método de pago</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {PAYMENT_METHODS.map(pm => (
+                  <button
+                    key={pm.key}
+                    onClick={() => setPaymentMethod(pm.key)}
+                    className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-colors ${
+                      paymentMethod === pm.key
+                        ? 'border-brand-yellow bg-yellow-50'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <span className="text-2xl">{pm.icon}</span>
+                    <span className="text-xs font-semibold text-gray-700 mt-1 text-center leading-tight">{pm.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Cash change calculator */}
           {paymentMethod === 'efectivo' && (
@@ -329,27 +361,6 @@ export default function NewSale() {
               )}
             </div>
           )}
-
-          {/* Channel */}
-          <div className="card">
-            <h3 className="font-bold text-gray-700 mb-3">Canal de venta</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {CHANNELS.map(ch => (
-                <button
-                  key={ch.key}
-                  onClick={() => setChannel(ch.key)}
-                  className={`flex flex-col items-center py-3 px-2 rounded-xl border-2 transition-colors ${
-                    channel === ch.key
-                      ? 'border-brand-yellow bg-yellow-50'
-                      : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <span className="text-2xl">{ch.icon}</span>
-                  <span className="text-xs font-semibold text-gray-700 mt-1 text-center">{ch.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Notes */}
           <div className="card">

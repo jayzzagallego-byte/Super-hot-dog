@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import api from '../api/client';
 
@@ -16,6 +16,19 @@ const PERIODS = [
 ];
 
 const COLORS = ['#F59E0B', '#EF4444', '#3B82F6', '#10B981', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
+
+const RADIAN = Math.PI / 180;
+const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  if (percent < 0.05) return null;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={10} fontWeight="bold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
 
 function todayStr() { return new Date().toISOString().split('T')[0]; }
 function daysAgoStr(n) { return new Date(Date.now() - n * 864e5).toISOString().split('T')[0]; }
@@ -384,17 +397,17 @@ function TimeChart({ data, chartType, title }) {
   const fmt = data.map(d => ({ ...d, day: d.day.slice(5) }));
 
   if (chartType === 'Torta') {
-    // Aggregate totals per day label for pie
     return (
       <div>
         <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={300}>
           <PieChart>
-            <Pie data={fmt} dataKey="total" nameKey="day" cx="50%" cy="50%" outerRadius={90}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+            <Pie data={fmt} dataKey="total" nameKey="day" cx="50%" cy="45%" outerRadius={85}
+              labelLine={false} label={renderCustomLabel}>
               {fmt.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
             <Tooltip formatter={v => [COP(v), 'Total']} />
+            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -443,14 +456,31 @@ function ProductChart({ data, chartType, title }) {
     return (
       <div>
         <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={300}>
           <PieChart>
-            <Pie data={top} dataKey="total_qty" nameKey="product_name" cx="50%" cy="50%" outerRadius={90}
-              label={({ name, percent }) => `${name?.split(' ')[0]} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+            <Pie data={top} dataKey="total_qty" nameKey="product_name" cx="50%" cy="45%" outerRadius={85}
+              labelLine={false} label={renderCustomLabel}>
               {top.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
             <Tooltip formatter={(v, n) => [v + ' uds', n]} />
+            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} formatter={v => v.length > 14 ? v.slice(0, 13) + '…' : v} />
           </PieChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  if (chartType === 'Líneas') {
+    return (
+      <div>
+        <p className="font-bold text-sm mb-3 text-gray-700">{title}</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={top} margin={{ top: 5, right: 10, bottom: 50, left: 0 }}>
+            <XAxis dataKey="product_name" tick={{ fontSize: 8 }} angle={-35} textAnchor="end" interval={0} />
+            <YAxis tick={{ fontSize: 10 }} />
+            <Tooltip formatter={v => [v + ' uds', 'Vendidos']} />
+            <Line type="monotone" dataKey="total_qty" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 4 }} />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     );
@@ -480,13 +510,14 @@ function CategoryChart({ data, chartType }) {
     return (
       <div>
         <p className="font-bold text-sm mb-3 text-gray-700">Ingresos por categoría</p>
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={300}>
           <PieChart>
-            <Pie data={data} dataKey="revenue" nameKey="category" cx="50%" cy="50%" outerRadius={90}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+            <Pie data={data} dataKey="revenue" nameKey="category" cx="50%" cy="45%" outerRadius={85}
+              labelLine={false} label={renderCustomLabel}>
               {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
             <Tooltip formatter={v => [COP(v), 'Ingresos']} />
+            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
