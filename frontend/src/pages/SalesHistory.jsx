@@ -175,6 +175,7 @@ export default function SalesHistory() {
                           <span className="font-medium text-gray-700">{item.quantity}× {item.product_name}</span>
                           {item.is_combo ? <span className="text-xs text-brand-red ml-1">Combo</span> : null}
                           {item.base && <span className="text-xs text-gray-500 ml-1">({item.base})</span>}
+                          {item.combo_drink && <span className="text-xs text-blue-500 ml-1">🥤 {item.combo_drink}</span>}
                           {item.additions?.length > 0 && (
                             <p className="text-xs text-gray-400">+ {item.additions.join(', ')}</p>
                           )}

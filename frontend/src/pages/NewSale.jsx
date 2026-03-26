@@ -17,8 +17,9 @@ const CHANNELS = [
 ];
 
 const BASES = ['Pan', 'Arepa', 'Tortilla', 'Lechuga'];
-const BASE_CATEGORIES = ['Hot Dogs', 'Burgers'];
+const BASE_CATEGORIES = ['Hot Dogs', 'Burgers', 'Hamburguesas'];
 const ADDITION_CATEGORY = 'Adiciones';
+const NO_ADDITIONS_CATEGORIES = ['Adiciones', 'Bebidas'];
 
 function fmt(v) {
   return '$' + Number(v).toLocaleString('es-CO');
@@ -55,6 +56,13 @@ export default function NewSale() {
   const additionsCategory = categories.find(c => c.name === ADDITION_CATEGORY);
   const additionProducts = additionsCategory?.products || [];
 
+  const bebidasCategory = categories.find(c => c.name === 'Bebidas');
+  const allBebidas = bebidasCategory?.products || [];
+  // Combo drinks = 400ml sodas; if none match that filter show all bebidas
+  const comboDrinks = allBebidas.filter(p => p.name.includes('400')).length > 0
+    ? allBebidas.filter(p => p.name.includes('400'))
+    : allBebidas;
+
   const openModal = (product, categoryName) => {
     const needsBase = BASE_CATEGORIES.includes(categoryName);
     setModal({
@@ -69,7 +77,7 @@ export default function NewSale() {
 
   const addToCart = () => {
     if (!modal) return;
-    const { product, isCombo, base, additions, removals, quantity, categoryName } = modal;
+    const { product, isCombo, base, combo_drink, additions, removals, quantity, categoryName } = modal;
     const unitPrice = isCombo && product.combo_price ? product.combo_price : product.price;
     const additionsTotal = additions.reduce((sum, a) => sum + a.price, 0);
     const totalPrice = (unitPrice + additionsTotal);
@@ -82,6 +90,7 @@ export default function NewSale() {
       unit_price: totalPrice,
       is_combo: isCombo,
       base,
+      combo_drink: combo_drink || null,
       additions: additions.map(a => a.name),
       removals: removals || [],
       categoryName,
@@ -108,6 +117,7 @@ export default function NewSale() {
           unit_price: item.unit_price,
           is_combo: item.is_combo,
           base: item.base,
+          combo_drink: item.combo_drink,
           additions: item.additions,
           removals: item.removals,
         })),
@@ -229,6 +239,7 @@ export default function NewSale() {
                   <p className="font-semibold text-sm text-gray-800">{item.product_name}</p>
                   {item.is_combo && <p className="text-xs text-brand-red">Combo</p>}
                   {item.base && <p className="text-xs text-gray-500">Base: {item.base}</p>}
+                  {item.combo_drink && <p className="text-xs text-blue-500">🥤 {item.combo_drink}</p>}
                   {item.additions?.length > 0 && (
                     <p className="text-xs text-gray-500">+ {item.additions.join(', ')}</p>
                   )}
@@ -336,6 +347,7 @@ export default function NewSale() {
           modal={modal}
           setModal={setModal}
           additionProducts={additionProducts}
+          comboDrinks={comboDrinks}
           onAdd={addToCart}
         />
       )}
@@ -343,13 +355,14 @@ export default function NewSale() {
   );
 }
 
-function ItemModal({ modal, setModal, additionProducts, onAdd }) {
+function ItemModal({ modal, setModal, additionProducts, comboDrinks, onAdd }) {
   const { product, categoryName } = modal;
   const needsBase = BASE_CATEGORIES.includes(categoryName);
-  const isNotAdicion = categoryName !== ADDITION_CATEGORY;
+  const showAdditions = !NO_ADDITIONS_CATEGORIES.includes(categoryName);
 
   const [isCombo, setIsCombo] = useState(false);
   const [base, setBase] = useState('Pan');
+  const [combo_drink, setComboDrink] = useState('');
   const [additions, setAdditions] = useState([]);
   const [removals, setRemovals] = useState([]);
   const [quantity, setQuantity] = useState(1);
@@ -439,8 +452,34 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
           </div>
         )}
 
+        {/* Combo drink picker */}
+        {isCombo && product.combo_price && comboDrinks.length > 0 && (
+          <div>
+            <p className="label">🥤 Bebida del combo</p>
+            <div className="grid grid-cols-2 gap-2">
+              {comboDrinks.map(drink => (
+                <button
+                  key={drink.id}
+                  onClick={() => setComboDrink(d => d === drink.name ? '' : drink.name)}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-colors text-left ${
+                    combo_drink === drink.name
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-gray-200'
+                  }`}
+                >
+                  <span className="text-lg">🥤</span>
+                  <span className="text-sm font-medium text-gray-700 leading-tight">{drink.name}</span>
+                </button>
+              ))}
+            </div>
+            {!combo_drink && (
+              <p className="text-xs text-amber-600 mt-1">Selecciona la bebida del combo</p>
+            )}
+          </div>
+        )}
+
         {/* Additions */}
-        {isNotAdicion && additionProducts.length > 0 && (
+        {showAdditions && additionProducts.length > 0 && (
           <div>
             <p className="label">Adiciones</p>
             <div className="grid grid-cols-2 gap-2">
@@ -514,7 +553,7 @@ function ItemModal({ modal, setModal, additionProducts, onAdd }) {
         <button
           onClick={() => {
             // pass state back
-            Object.assign(modal, { isCombo, base, additions, removals, quantity });
+            Object.assign(modal, { isCombo, base, combo_drink, additions, removals, quantity });
             onAdd();
           }}
           className="btn-primary w-full flex items-center justify-between"

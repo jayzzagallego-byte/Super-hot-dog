@@ -60,8 +60,10 @@ db.prepare = (sql) => {
 
 db.exec('PRAGMA foreign_keys = ON');
 
-// Add removals column if it doesn't exist yet (safe migration)
+// Safe migrations
 try { db.exec('ALTER TABLE sale_items ADD COLUMN removals TEXT'); } catch (_) {}
+try { db.exec('ALTER TABLE sale_items ADD COLUMN combo_drink TEXT'); } catch (_) {}
+try { db.exec("UPDATE categories SET name = 'Hamburguesas' WHERE name = 'Burgers'"); } catch (_) {}
 
 // Create tables
 db.exec(`
