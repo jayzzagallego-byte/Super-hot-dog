@@ -9,6 +9,8 @@ import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
 import MenuManagement from './pages/MenuManagement';
+import Orders from './pages/Orders';
+import OrderDetail from './pages/OrderDetail';
 import Layout from './components/Layout';
 
 function PrivateRoute({ children }) {
@@ -31,6 +33,8 @@ export default function App() {
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="nueva-venta" element={<NewSale />} />
+            <Route path="ordenes" element={<Orders />} />
+            <Route path="ordenes/:id" element={<OrderDetail />} />
             <Route path="historial" element={<SalesHistory />} />
             <Route path="inventario" element={<Inventory />} />
             <Route path="configuracion" element={<Settings />} />

@@ -8,7 +8,7 @@ function fmt(value) {
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: HomeIcon, exact: true },
-  { to: '/nueva-venta', label: 'Vender', icon: PlusIcon },
+  { to: '/ordenes', label: 'Vender', icon: PlusIcon },
   { to: '/historial', label: 'Historial', icon: ListIcon },
   { to: '/inventario', label: 'Inventario', icon: BoxIcon },
   { to: '/analiticas', label: 'Analíticas', icon: ChartIcon },

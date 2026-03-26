@@ -66,6 +66,32 @@ try { db.exec('ALTER TABLE sale_items ADD COLUMN combo_drink TEXT'); } catch (_)
 try { db.exec('ALTER TABLE sale_items ADD COLUMN salsas TEXT'); } catch (_) {}
 try { db.exec("UPDATE categories SET name = 'Hamburguesas' WHERE name = 'Burgers'"); } catch (_) {}
 
+// Orders tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    identifier TEXT NOT NULL,
+    status TEXT DEFAULT 'open',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+    product_id INTEGER,
+    product_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_price INTEGER NOT NULL,
+    is_combo INTEGER DEFAULT 0,
+    base TEXT,
+    combo_drink TEXT,
+    additions TEXT,
+    removals TEXT,
+    salsas TEXT
+  );
+`);
+
 // Create tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
