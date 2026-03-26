@@ -1,5 +1,10 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useShift } from '../context/ShiftContext';
+
+function fmt(value) {
+  return '$' + Number(value).toLocaleString('es-CO');
+}
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: HomeIcon, exact: true },
@@ -12,6 +17,7 @@ const navItems = [
 export default function Layout() {
   const { username, logout } = useAuth();
   const navigate = useNavigate();
+  const { shift, shiftTotal } = useShift();
 
   const handleLogout = () => {
     logout();
@@ -43,6 +49,14 @@ export default function Layout() {
           </button>
         </div>
       </header>
+
+      {/* Shift banner */}
+      {shift && (
+        <div className="bg-brand-yellow text-brand-dark px-4 py-1.5 flex items-center justify-between text-sm font-semibold sticky top-[57px] z-40">
+          <span>⏱ Turno activo</span>
+          <span>{fmt(shiftTotal)} vendidos</span>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="flex-1 pb-24 overflow-auto">

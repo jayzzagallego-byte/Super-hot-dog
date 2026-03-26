@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ShiftProvider } from './context/ShiftContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import NewSale from './pages/NewSale';
@@ -23,6 +24,7 @@ function PublicRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <ShiftProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -38,6 +40,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </ShiftProvider>
     </AuthProvider>
   );
 }
